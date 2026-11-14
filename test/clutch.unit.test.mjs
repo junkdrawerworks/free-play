@@ -141,6 +141,21 @@ test('let go right beside the chute\'s clear wall, the claw\'s head comes to res
   assert.ok(onTop >= 18, `the head only came to rest on the wall's top in ${onTop} goes`);
 });
 
+test('nothing stays stuck in the claw: back over the chute, everything it carried falls out', () => {
+  // A plush caught alongside the one the claw holds, or one that slipped off while still between the arms, could end up
+  // buried in an arm. It then rode the claw for good: every go after, the claw came to rest on it as soon as it dropped,
+  // brought it back to the chute and opened, and it never fell. (These machines all had one stuck within a few goes.)
+  for (const [s, goes] of [[4, 6], [15, 6], [22, 2], [27, 4], [32, 6]]) {
+    const m = createMachine(Matter, { random: seeded(s) });
+    const inClaw = toy => [m.hub, ...m.arms].some(part => Matter.Bounds.overlaps(part.bounds, toy.bounds));
+    for (let k = 0; k < goes; k++) {
+      go(m, topPlush(m).position.x);
+      const stuck = m.toys.filter(inClaw);
+      assert.deepEqual(stuck.map(t => t.kind), [], `seed ${s}, go ${k}: still in the claw, ready for the next go`);
+    }
+  }
+});
+
 test('a plush is only won by falling down the chute, and it leaves the box when it is', () => {
   for (let s = 1; s <= 8; s++) {
     const m = createMachine(Matter, { random: seeded(s * 7) });

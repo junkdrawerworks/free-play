@@ -14,7 +14,8 @@
 // here the way it does in a real machine, so the grab itself is judged when the arms close: how squarely the plush sits
 // between them, and whether the hooks closed under its middle or only round its sides. A plush that's caught then hangs
 // from the claw (on a little give, so it sways) and may slip off on the way to the chute: a good grab rarely does,
-// a poor one usually does, and wherever it drops, it falls for real.
+// a poor one usually does, and wherever it drops, it falls for real. Back over the chute the claw opens and everything in
+// it falls out, whatever it was caught on.
 
 export const BOX = { W: 600, H: 760, floor: 700, chute: { x0: 16, x1: 140 }, guard: { x: 150, top: 440 } };
 export const HOME = { x: 78, y: 110 };
@@ -51,7 +52,7 @@ export const KINDS = {
 const COMMON = ['bear', 'chick', 'frog', 'ghost', 'penguin', 'alien'];
 
 export function createMachine(Matter, { random = Math.random, plush = 14 } = {}) {
-  const { Engine, Bodies, Body, Composite, Query, Constraint } = Matter;
+  const { Engine, Bodies, Body, Composite, Query, Constraint, Bounds } = Matter;
   const engine = Engine.create({ gravity: { x: 0, y: 1.6 }, positionIterations: 12, velocityIterations: 10, constraintIterations: 6 });
   const world = engine.world;
   const CLAW = -1; // the claw's parts never collide with each other
@@ -176,10 +177,16 @@ export function createMachine(Matter, { random = Math.random, plush = 14 } = {})
     });
     pose();
   }
+  // Whether a plush is in the claw or up against it: in the box round its head or either arm.
+  const inClaw = toy => [hub, ...arms].some(part => Bounds.overlaps(part.bounds, toy.bounds));
+  // Lets a plush fall out of the claw: it passes through the head and arms until it's fallen clear of them, and only then
+  // goes back to bumping into them. (Let it bump into them any sooner and an arm swinging can bury it in itself, where it
+  // stays.)
+  function loose(toy) { toy.clearing = true; toy.collisionFilter.group = CLAW; }
   function letGo() {
     if (!held) return;
     Composite.remove(world, line);
-    held.clearing = true; // it goes back to bumping into the claw once it's fallen clear of the arms, not while inside them
+    loose(held);
     events.push('slip');
     held = null; line = null;
   }
@@ -242,6 +249,7 @@ export function createMachine(Matter, { random = Math.random, plush = 14 } = {})
         break;
       case 'release':
         if (held) { letGo(); events.pop(); events.push('let-go'); } // over the chute: opens and lets it fall in
+        for (const toy of toys) if (!toy.clearing && inClaw(toy)) loose(toy); // and anything else it's carrying with it
         claw.angles = claw.angles.map(a => Math.min(OPEN, a + SPEED.close * 1.6 * dt));
         if (t > 0.6) { state = 'settle'; t = 0; }
         break;
@@ -254,7 +262,7 @@ export function createMachine(Matter, { random = Math.random, plush = 14 } = {})
     Engine.update(engine, STEP);
 
     for (const toy of toys) {
-      if (toy.clearing && !arms.some(arm => Query.collides(arm, [toy]).length)) { toy.clearing = false; toy.collisionFilter.group = 0; }
+      if (toy.clearing && !inClaw(toy)) { toy.clearing = false; toy.collisionFilter.group = 0; }
     }
     // anything through the chute's hole is won; anything that's somehow got out anywhere else goes back on the heap
     for (let i = toys.length - 1; i >= 0; i--) {
