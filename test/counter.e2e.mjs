@@ -348,6 +348,9 @@ for (const [path, hook, opener] of [['', 'freePlay', '#purse'], ['tilt/?table=sp
   assert.equal(page.url(), base + path, `${where}: closing the counter changed the address`);
   if (hook === 'tilt') assert.equal(await page.evaluate(() => window.tilt.table.name), 'Space', 'tilt: the table after ×');
   await page.goBack();
+  // (on a machine, Back first comes off the step the page keeps for a Back set off by a swipe at the screen's side,
+  // and goes on from there to the page before: see shared/play-guard.js)
+  await page.waitForURL(before, { timeout: 3000 }).catch(() => {});
   assert.equal(page.url(), before, `${where}: after ×, Back went somewhere other than the page before`);
 }
 

@@ -16,6 +16,7 @@ import { count } from '../../shared/records.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { trophy } from '../../shared/prizes.js';
 import { openCounter, bigPrize, counterOpen, feed, tickets, shortOfATicket, PAYOUT } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 
 const $ = id => document.getElementById(id);
 const KEY = 'free-play.tilt'; // what was 'tilt.v1' at tilt.junkdrawer.works; ../shared/carry.js brings it over
@@ -145,17 +146,22 @@ function useTable(id) {
   if (store.table !== id) { store.table = id; save(); }
   // The first table needs no name in the address, and anything else there (?debug, say) stays as it was. The
   // single-file copy may be inside someone else's page, so it leaves the address alone.
-  if (!SINGLE) {
-    try {
-      const keep = location.search.slice(1).split('&').filter(p => p && p.split('=')[0] !== 'table');
-      const q = (id === FIRST ? keep : [...keep, 'table=' + id]).join('&'), search = q && '?' + q;
-      if (search !== location.search) history.replaceState(history.state, '', location.pathname + search + location.hash);
-    } catch { /* an address it can't change: play on */ }
-  }
+  address(id);
   showBest();
   special();
   resize();
 }
+function address(id) {
+  if (SINGLE) return;
+  try {
+    const keep = location.search.slice(1).split('&').filter(p => p && p.split('=')[0] !== 'table');
+    const q = (id === FIRST ? keep : [...keep, 'table=' + id]).join('&'), search = q && '?' + q;
+    if (search !== location.search) history.replaceState(history.state, '', location.pathname + search + location.hash);
+  } catch { /* an address it can't change: play on */ }
+}
+// A Back taken for a slip (see below) lands on the page's step from before the first tap, whose address can name the
+// table from before one was picked: it names the one in the machine again.
+addEventListener('popstate', () => address(Object.keys(TABLES).find(id => TABLES[id] === table)));
 // Today's special, when it's Tilt's day: its goal, on its table, on the title card (or that it's made).
 function special() { const t = titleLine('tilt'); $('titleSpecial').textContent = t; $('titleSpecial').hidden = !t; }
 addEventListener('pageshow', special);
@@ -167,6 +173,11 @@ useTable([asked, store.table].find(id => id && Object.keys(TABLES).includes(id))
 
 // ---------- controls: touch ----------
 const stage = $('stage');
+// A thumb held on a flipper near the screen's side can roll inward and set off the phone's back gesture: the touch is
+// taken, and the Back comes when the thumb lifts, which can be a couple of seconds later with a ball cradled. A Back
+// while a flipper or Launch is held, or within 2.5 s of one being taken, keeps the game as it was (see
+// ../../shared/play-guard.js). A Back from a card or the pause menu leaves for the floor, as ever.
+const played = guardPlay({ slipMs: 2500 });
 const touches = new Map(); // pointerId -> { side, x0, y0, t0, nudged }
 function held(side) { for (const t of touches.values()) if (t.side === side) return true; return false; }
 // A flipper button, from a finger or a key. The visit's first game shows how to flip until the first one (see hud()).
@@ -182,6 +193,7 @@ stage.addEventListener('pointerdown', e => {
   if (game.mode !== 'play' || paused) return;
   e.preventDefault();
   const side = e.clientX < window.innerWidth / 2 ? 'left' : 'right';
+  played(e);
   touches.set(e.pointerId, { side, x0: e.clientX, y0: e.clientY, t0: performance.now(), nudged: false });
   try { stage.setPointerCapture(e.pointerId); } catch { }
   flip(side, true);
@@ -210,7 +222,7 @@ const launch = $('launch'), hint = $('hint');
 launch.addEventListener('pointerdown', e => {
   e.preventDefault(); e.stopPropagation(); unlock();
   try { launch.setPointerCapture(e.pointerId); } catch { }
-  if (game.mode === 'play' && !paused) game.plunge(true, e.timeStamp);
+  if (game.mode === 'play' && !paused) { played(e); game.plunge(true, e.timeStamp); }
 });
 const launchUp = e => { e.preventDefault(); game.plunge(false, e.timeStamp); };
 launch.addEventListener('pointerup', launchUp);
