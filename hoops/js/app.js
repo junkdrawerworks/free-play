@@ -8,6 +8,7 @@ import * as sound from './sound.js';
 import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { openCounter, bigPrize, counterOpen, feed, bestLine, bump, pocketButton, tickets, shortOfATicket, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { trophy } from '../../shared/prizes.js';
@@ -212,6 +213,9 @@ function tip(text) { $('overTip').hidden = !text; $('overTip').textContent = tex
 // that reads the glass 240 times a second makes 40 in a sixth of a second, so a thumb resting a fifth of a second
 // before it lifts would push the flick itself out.)
 const flicks = new Map();
+// A flick near the screen's side can set off the phone's back gesture, which takes the touch and then goes Back: a Back
+// mid-flick, or just after, keeps the round as it was (see ../../shared/play-guard.js).
+const played = guardPlay();
 const KEEP = READ.rest + READ.stroke + 30; // ms
 function track(e) {
   const s = flicks.get(e.pointerId);
@@ -226,6 +230,7 @@ canvas.addEventListener('pointerdown', e => {
   sound.unlock();
   if (e.button > 0 || mode !== 'play' || paused || carded()) return;
   flicks.set(e.pointerId, [{ t: e.timeStamp, x: e.clientX, y: e.clientY }]);
+  played(e);
   try { canvas.setPointerCapture(e.pointerId); } catch { /* fine without */ }
   e.preventDefault();
 });

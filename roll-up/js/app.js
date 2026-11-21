@@ -10,6 +10,7 @@ import { trophy } from '../../shared/prizes.js';
 import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { openCounter, bigPrize, counterOpen, toast, feed, bestLine, bump, pocketButton, tickets, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { topFive, place, onList, count } from '../../shared/records.js';
 
@@ -365,6 +366,10 @@ function sample(e) {
   if (drag.samples.length > 40) drag.samples.splice(0, drag.samples.length - 40);
 }
 
+// A finger dragging the ball near the screen's side can set off the phone's back gesture, which takes the touch and
+// then goes Back. A Back while the ball is held, or just after the touch is taken, keeps the game as it was (see
+// ../../shared/play-guard.js); a Back at any other time leaves for the floor, as ever.
+const played = guardPlay();
 canvas.addEventListener('pointerdown', e => {
   sound.unlock();
   if (mode !== 'aim' || paused || charge) return;
@@ -377,6 +382,7 @@ canvas.addEventListener('pointerdown', e => {
   }
   pingAt = 0;
   drag = { id: e.pointerId, off: { x: ball.x - w.x, z: ball.z - w.z }, samples: [] };
+  played(e);
   try { canvas.setPointerCapture(e.pointerId); } catch { /* fine without */ }
   mode = 'drag';
   hud(); // the hint has done its job

@@ -13,6 +13,7 @@ import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { TRINKETS } from '../../shared/prizes.js';
 import { openCounter, bigPrize, counterOpen, toast, feed, bestLine, pocketButton, tickets, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { topFive, place, onList, count } from '../../shared/records.js';
@@ -115,12 +116,16 @@ let shut = -Infinity;
 const closed = () => { shut = performance.now(); };
 const justShut = () => performance.now() - shut < 350;
 
-// Touch the glass to aim: the chute follows the finger along its rail, and letting go drops a coin.
+// Touch the glass to aim: the chute follows the finger along its rail, and letting go drops a coin. A finger aiming
+// near the screen's side can set off the phone's back gesture, which takes the touch (no coin drops) and then goes
+// Back: a Back while aiming, or just after, keeps the cup as it was (see ../../shared/play-guard.js).
+const played = guardPlay();
 let finger = null;
 canvas.addEventListener('pointerdown', e => {
   sound.unlock();
   if (e.button > 0 || carded() || !cup || justShut()) return;
   finger = e.pointerId;
+  played(e);
   aim = clampAim(draw.railX(e.clientX));
   try { canvas.setPointerCapture(e.pointerId); } catch { /* fine without */ }
   e.preventDefault();

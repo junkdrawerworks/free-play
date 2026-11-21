@@ -11,6 +11,7 @@ import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { PLUSH } from '../../shared/prizes.js';
 import { openCounter, bigPrize, counterOpen, pocketButton, fmt, bump } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { insets } from '../../shared/insets.js';
 import { count } from '../../shared/records.js';
@@ -107,10 +108,17 @@ let shut = -Infinity;
 function closed() { shut = performance.now(); }
 const justShut = () => performance.now() - shut < 350;
 
+// A thumb holding the button or the glass near the screen's side can roll inward and set off the phone's back gesture:
+// the touch is taken (the claw drops), and the Back comes when the thumb lifts, which can be a couple of seconds later
+// with the claw on its way across. A Back while the button is held, or within 2.5 s of the touch being taken, keeps the
+// machine as it was (see ../../shared/play-guard.js); a Back at any other time leaves for the floor, as ever.
+const played = guardPlay({ slipMs: 2500 });
 for (const el of [$('hold'), canvas]) {
   el.addEventListener('pointerdown', e => {
     if (e.button > 0 || justShut()) return;
+    const was = down;
     press(e);
+    if (!was && down) played(e);
     try { el.setPointerCapture(e.pointerId); } catch { /* fine without */ }
   });
   el.addEventListener('pointerup', release);

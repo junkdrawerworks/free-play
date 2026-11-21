@@ -1,12 +1,14 @@
 // Swipes at the screen's side, on the machines, in Chromium through the real pages:  node test/edges.e2e.mjs
 // (needs Playwright). On a phone with gesture navigation a swipe that starts by the screen's side is Back: a thumb on a
-// flipper that rolls inward has its touch taken (pointercancel) and a Back follows. On Tilt, at 390 x 844 with a
-// touch screen: nothing overscrolls sideways and the canvas takes every touch; a Back while a touch it plays with is
-// down, or just after one is taken, keeps the round going; a while later Back goes to the floor in one press; and a
-// swipe Back from the screen's very edge on the title card, where it isn't play, goes to the floor in one press too.
-// Tilt's Launch button, held to launch, keeps clear of the screen's sides at 320, 360 and 390 px. (Its flippers take a
-// tap or a hold on either half of the screen, so they need no slide; a dead strip by the sides would only miss flips.)
-// And Tilt's address still names the table in the machine after a slip.
+// flipper that rolls inward has its touch taken (pointercancel) and a Back follows. On Tilt, Roll Up, Clutch, Topple
+// and Hoops, at 390 x 844 with a touch screen: nothing overscrolls sideways and the canvas takes every touch; a Back
+// while a touch it plays with is down, or just after one is taken, keeps the round going; a while later Back goes to
+// the floor in one press; and a swipe Back from the screen's very edge on the title card, where it isn't play, goes to
+// the floor in one press too.
+// What a finger holds or slides keeps clear of the screen's sides at 320, 360 and 390 px: Tilt's Launch button, the
+// far ends of Topple's aim and the reach of Roll Up's ball. (Tilt's flippers take a tap or a hold on either half of
+// the screen, so they need no slide; a dead strip by the sides would only miss flips.) And Tilt's address still names
+// the table in the machine after a slip.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -58,6 +60,18 @@ const MACHINES = [
   { path: 'tilt/', hook: 'tilt', play: '#startBtn', slip: 2500, ready: () => window.tilt.game.mode === 'play',
     cards: ['title', 'pause', 'over'], going: () => window.tilt.game.mode === 'play',
     at: () => ({ x: 30, y: 600 }) }, // a thumb on the left flipper
+  { path: 'roll-up/', hook: 'rollUp', play: '#play', ready: () => window.rollUp.mode === 'aim', again: true,
+    cards: ['title', 'menu', 'over'],
+    at: () => { const b = window.rollUp.ball, p = window.rollUp.scene.project({ x: b.x, y: b.y, z: b.z }); return { x: p.x, y: p.y }; } },
+  { path: 'clutch/', hook: 'clutch', play: '#play', slip: 2500, ready: () => window.clutch.state === 'ready',
+    cards: ['title', 'menu'],
+    at: () => ({ x: 30, y: 400 }) }, // a thumb holding the glass
+  { path: 'topple/', hook: 'topple', play: '#play', ready: () => !!window.topple.cup,
+    cards: ['title', 'menu', 'over'],
+    at: () => ({ x: 30, y: 400 }) },
+  { path: 'hoops/', hook: 'hoops', play: '#play', ready: () => window.hoops.mode === 'play',
+    cards: ['title', 'menu', 'over'],
+    at: () => ({ x: 195, y: 700 }) },
 ];
 
 for (const m of MACHINES) {
@@ -144,6 +158,24 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 320, height: 640 }
     const b = await page.evaluate(() => { const r = document.getElementById('launch').getBoundingClientRect(); return { left: r.left, right: innerWidth - r.right }; });
     assert.ok(b.left >= 24 && b.right >= 24, `Tilt's Launch button is ${Math.min(b.left, b.right).toFixed(1)} px from the side on ${table} at ${w} px`);
   }
+  // Topple: the chute reaches both ends of its rail with the finger 24 px from the screen's sides.
+  await page.goto(base + 'topple/');
+  await page.waitForFunction(() => !!window.topple);
+  const ends = await page.evaluate(async () => {
+    const { DECK } = await import('./js/machine.js');
+    const d = window.topple.draw, a = d.railX(0), k = (d.railX(100) - a) / 100, px = mm => (mm - a) / k;
+    return { left: px(12), right: innerWidth - px(DECK.W - 12) };
+  });
+  assert.ok(ends.left >= 24 && ends.right >= 24, `Topple's aim needs a finger ${Math.min(ends.left, ends.right).toFixed(1)} px from the side at ${w} px`);
+  // Roll Up: the ball, dragged across, stays inside the lane, whose near end is well in from the sides.
+  await page.goto(base + 'roll-up/');
+  await page.waitForFunction(() => !!window.rollUp);
+  const lane = await page.evaluate(async () => {
+    const { LANE } = await import('./js/physics.js');
+    const s = window.rollUp.scene, l = s.project({ x: -LANE.half, y: 0, z: LANE.start - 12 }), r = s.project({ x: LANE.half, y: 0, z: LANE.start - 12 });
+    return { left: Math.min(l.x, r.x), right: innerWidth - Math.max(l.x, r.x) };
+  });
+  assert.ok(lane.left >= 24 && lane.right >= 24, `Roll Up's lane is ${Math.min(lane.left, lane.right).toFixed(1)} px from the side at ${w} px`);
   await ctx.close();
 }
 
