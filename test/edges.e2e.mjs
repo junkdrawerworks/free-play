@@ -4,7 +4,8 @@
 // a touch screen: nothing overscrolls sideways and the canvas takes every touch; a finger down playing puts a step in
 // the history, gone again a while after it lifts; a Back while it's down, or just after the browser takes the touch,
 // keeps the round going; with no finger down there's no step, and Back goes to the floor in one press, from a round or
-// from the title card (where a swipe from the very edge lands on the canvas under the card), and after a reload too.
+// from the title card (where a swipe from the very edge lands on the canvas under the card); a reload makes the step a
+// plain one.
 // What a finger holds or slides keeps clear of the screen's sides at 320, 360 and 390 px: Tilt's Launch button, the
 // far ends of Topple's aim and the reach of Roll Up's ball. (Tilt's flippers take a tap or a hold on either half of
 // the screen, so they need no slide; a dead strip by the sides would only miss flips.) And Tilt's address still names
@@ -166,7 +167,8 @@ for (const m of MACHINES) {
   await ctx.close();
 }
 
-// Reloaded just after a finger lifted, with the step for a slip still there, a Back goes to the floor in one press.
+// Reloaded just after a finger lifted, with the step for a slip still there: the step is a plain one from then on
+// (the one under it belongs to the page before the reload), so Back takes two presses to the floor, that once.
 {
   const { ctx, page, touch } = await phone();
   await page.goto(base);
@@ -176,11 +178,14 @@ for (const m of MACHINES) {
   await page.waitForFunction(() => window.hoops.mode === 'play');
   await page.waitForTimeout(400);
   await touch('touchStart', 195, 700); await touch('touchEnd');
+  assert.ok(await page.evaluate(() => !!history.state?.__edgeGuard), 'a finger down playing on Hoops put no step in the history');
   await page.reload();
   await page.waitForFunction(() => !!window.hoops);
-  assert.ok(await page.evaluate(() => !!history.state?.__edgeGuard), 'the step for a slip went with the reload');
+  await page.waitForTimeout(1400);
+  assert.ok(!(await page.evaluate(() => !!history.state?.__edgeGuard)), 'after a reload, the step for a slip is still one');
   await page.goBack({ waitUntil: 'commit', timeout: 3000 }).catch(() => {});
-  await page.waitForURL(base, { timeout: 3000 }).catch(() => assert.fail("after a reload, Back didn't go to the floor in one press"));
+  await page.goBack({ waitUntil: 'commit', timeout: 3000 }).catch(() => {});
+  await page.waitForURL(base, { timeout: 3000 }).catch(() => assert.fail("after a reload, two Backs didn't go to the floor"));
   await ctx.close();
 }
 
