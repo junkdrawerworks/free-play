@@ -1,10 +1,9 @@
-// Swipes at the screen's side, on the machines, in Chromium through the real pages:  node test/edges.e2e.mjs
+// Swipes at the screen's side, on every machine, in Chromium through the real pages:  node test/edges.e2e.mjs
 // (needs Playwright). On a phone with gesture navigation a swipe that starts by the screen's side is Back: a thumb on a
-// flipper that rolls inward has its touch taken (pointercancel) and a Back follows. On Tilt, Roll Up, Clutch, Topple
-// and Hoops, at 390 x 844 with a touch screen: nothing overscrolls sideways and the canvas takes every touch; a Back
-// while a touch it plays with is down, or just after one is taken, keeps the round going; a while later Back goes to
-// the floor in one press; and a swipe Back from the screen's very edge on the title card, where it isn't play, goes to
-// the floor in one press too.
+// flipper that rolls inward has its touch taken (pointercancel) and a Back follows. On each machine, at 390 x 844 with
+// a touch screen: nothing overscrolls sideways and the canvas takes every touch; a Back while a touch it plays with is
+// down, or just after one is taken, keeps the round going; a while later Back goes to the floor in one press; and a
+// swipe Back from the screen's very edge on the title card, where it isn't play, goes to the floor in one press too.
 // What a finger holds or slides keeps clear of the screen's sides at 320, 360 and 390 px: Tilt's Launch button, the
 // far ends of Topple's aim and the reach of Roll Up's ball. (Tilt's flippers take a tap or a hold on either half of
 // the screen, so they need no slide; a dead strip by the sides would only miss flips.) And Tilt's address still names
@@ -69,6 +68,15 @@ const MACHINES = [
   { path: 'topple/', hook: 'topple', play: '#play', ready: () => !!window.topple.cup,
     cards: ['title', 'menu', 'over'],
     at: () => ({ x: 30, y: 400 }) },
+  { path: 'highrise/', hook: 'highrise', play: '#play', ready: () => window.highrise.ready, again: true,
+    cards: ['title', 'menu'],
+    at: () => ({ x: 30, y: 400 }) },
+  { path: 'popgun/', hook: 'popgun', play: '#play', ready: () => window.popgun.mode === 'play',
+    cards: ['title', 'menu', 'over'],
+    at: async () => { const { W, H } = await import('./js/gallery.js'); const p = window.popgun.draw.at(W / 2, H / 2); return { x: p.x, y: p.y }; } },
+  { path: 'bonkers/', hook: 'bonkers', play: '#play', ready: () => window.bonkers.mode === 'play',
+    cards: ['title', 'menu', 'over'],
+    at: async () => { const { HOLES } = await import('./js/burrow.js'); const p = window.bonkers.draw.at(HOLES[0], -30); return { x: p.x, y: p.y }; } },
   { path: 'hoops/', hook: 'hoops', play: '#play', ready: () => window.hoops.mode === 'play',
     cards: ['title', 'menu', 'over'],
     at: () => ({ x: 195, y: 700 }) },

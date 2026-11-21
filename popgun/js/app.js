@@ -8,6 +8,7 @@ import * as sound from './sound.js';
 import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { openCounter, bigPrize, counterOpen, feed, bestLine, bump, pocketButton, tickets, shortOfATicket, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { trophy } from '../../shared/prizes.js';
@@ -204,10 +205,13 @@ function closed() { shut = performance.now(); }
 const justShut = () => performance.now() - shut < 350;
 
 // A tap (or a click) fires where it lands. With a mouse the sights follow it, so you can see where the cork will go.
+// A quick tap at a target by the screen's side that slides can set off the phone's back gesture, which takes the touch
+// and then goes Back: a Back just after a tap that fired keeps the round as it was (see ../../shared/play-guard.js).
+const played = guardPlay();
 canvas.addEventListener('pointerdown', e => {
   if (e.button > 0 || justShut()) return;
   const p = draw.toBooth(e.clientX, e.clientY);
-  if (fire(p.x, p.y)) e.preventDefault();
+  if (fire(p.x, p.y)) { e.preventDefault(); played(e); }
 });
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;

@@ -10,6 +10,7 @@ import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { trophy } from '../../shared/prizes.js';
 import { openCounter, bigPrize, counterOpen, feed, bestLine, bump, pocketButton, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { topFive, place, onList, count } from '../../shared/records.js';
@@ -93,7 +94,7 @@ function newGame() {
 // The row is set down where it's shown.
 function stop() {
   sound.unlock();
-  if (mode !== 'play' || paused || clock < rowFrom || carded()) return;
+  if (mode !== 'play' || paused || clock < rowFrom || carded()) return false;
   const r = tower.place(shown);
   for (const col of r.dropped) falling.push({ col, floor: r.floor, t: 0 });
   if (r.dropped.length) sound.drop();
@@ -190,12 +191,15 @@ $('again').addEventListener('click', start);
 function say(text) { $('live').textContent = text; }
 
 // ---------- the stop button ----------
+// A tap near the screen's side that slides can set off the phone's back gesture, which takes the touch and then goes
+// Back: a Back just after a tap that stopped a row keeps the round as it was (see ../../shared/play-guard.js).
+const played = guardPlay();
 for (const el of [$('stop'), canvas]) {
   el.addEventListener('pointerdown', e => {
     if (e.button > 0) return;
     e.preventDefault();
     $('stop').classList.add('down');
-    stop();
+    if (stop() !== false) played(e);
   });
 }
 addEventListener('pointerup', () => $('stop').classList.remove('down'));

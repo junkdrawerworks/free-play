@@ -9,6 +9,7 @@ import * as sound from './sound.js';
 import * as wallet from '../../shared/wallet.js';
 import { soundOn, switchSound } from '../../shared/sound.js';
 import { openCounter, bigPrize, counterOpen, feed, bestLine, bump, pocketButton, tickets, shortOfATicket, PAYOUT, fmt } from '../../shared/counter.js';
+import { guardPlay } from '../../shared/play-guard.js';
 import { insets } from '../../shared/insets.js';
 import { claim, titleLine, endLine } from '../../shared/special.js';
 import { trophy } from '../../shared/prizes.js';
@@ -196,10 +197,13 @@ function say(text) { $('live').textContent = text; }
 function tip(text) { $('overTip').hidden = !text; $('overTip').textContent = text || ''; }
 
 // ---------- the mallet ----------
+// A quick tap at a mole by the screen's side that slides can set off the phone's back gesture, which takes the touch
+// and then goes Back: a Back just after a swing keeps the round as it was (see ../../shared/play-guard.js).
+const played = guardPlay();
 canvas.addEventListener('pointerdown', e => {
   if (e.button > 0) return;
   const p = draw.toBurrow(e.clientX, e.clientY);
-  if (swing(p.x, p.y)) e.preventDefault();
+  if (swing(p.x, p.y)) { e.preventDefault(); played(e); }
 });
 addEventListener('keydown', e => {
   if (counterOpen()) return; // the counter takes its own keys
