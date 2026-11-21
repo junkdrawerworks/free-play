@@ -9,9 +9,11 @@
 // a deliberate swipe Back from the screen's side always starts on it, and would be taken for a slip as well. So the
 // guard watches the touches a machine plays with instead: a flipper held, the ball dragged, a flick, the claw's button
 // pressed. A machine hands each one to the function guardPlay() returns when it takes it, and the guard hears when it
-// lifts or the browser takes it away, wherever that lands. A Back while one is down, or within slipMs of one being
-// taken, is a slip; any other Back (from a card, the menu, between rounds) leaves for the floor in one press, as ever.
-// The prize counter's own step in the history (counter.js) closes it on Back, as before: the guard's step sits under it.
+// lifts or the browser takes it away, wherever that lands. While one is down, and for slipMs after, the page holds an
+// extra step in its history for a slip to use up: a Back then keeps the machine as it was (or, a while after a finger
+// simply lifted, goes on to the floor). At any other time there's no extra step, and Back (from a card, the menu,
+// between rounds, or Back that closes an installed app) is just as it was. The prize counter's own step (counter.js)
+// still closes it on Back.
 import { guardEdges } from './edge-guard.js';
 
 export function guardPlay({ slipMs } = {}) {

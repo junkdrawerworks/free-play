@@ -1,13 +1,14 @@
 // Swipes at the screen's side, on every machine, in Chromium through the real pages:  node test/edges.e2e.mjs
 // (needs Playwright). On a phone with gesture navigation a swipe that starts by the screen's side is Back: a thumb on a
 // flipper that rolls inward has its touch taken (pointercancel) and a Back follows. On each machine, at 390 x 844 with
-// a touch screen: nothing overscrolls sideways and the canvas takes every touch; a Back while a touch it plays with is
-// down, or just after one is taken, keeps the round going; a while later Back goes to the floor in one press; and a
-// swipe Back from the screen's very edge on the title card, where it isn't play, goes to the floor in one press too.
+// a touch screen: nothing overscrolls sideways and the canvas takes every touch; a finger down playing puts a step in
+// the history, gone again a while after it lifts; a Back while it's down, or just after the browser takes the touch,
+// keeps the round going; with no finger down there's no step, and Back goes to the floor in one press, from a round or
+// from the title card (where a swipe from the very edge lands on the canvas under the card), and after a reload too.
 // What a finger holds or slides keeps clear of the screen's sides at 320, 360 and 390 px: Tilt's Launch button, the
 // far ends of Topple's aim and the reach of Roll Up's ball. (Tilt's flippers take a tap or a hold on either half of
 // the screen, so they need no slide; a dead strip by the sides would only miss flips.) And Tilt's address still names
-// the table in the machine after a slip.
+// the table in the machine once the step for a slip comes off.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -102,26 +103,35 @@ for (const m of MACHINES) {
   assert.deepEqual([look[0][0], look[1][0]], ['none', 'none'], `${where}: the page overscrolls sideways`);
   assert.equal(look[2][1], 'none', `${where}: the canvas doesn't take every touch`);
 
+  const extra = () => page.evaluate(() => !!history.state?.__edgeGuard);
+  const quiet = () => page.waitForTimeout((m.slip || 1000) + 400);
+
   // A swipe Back from the very edge of the screen on the title card isn't play: it goes to the floor in one press,
-  // although it lands on the canvas under the card and the browser takes the touch. (A key is the first tap here.)
-  await page.keyboard.press('KeyQ');
+  // although it lands on the canvas under the card and the browser takes the touch.
   await touch('touchStart', 2, 420); await touch('touchMove', 20, 420); await touch('touchCancel');
+  assert.ok(!(await extra()), `${where}: a touch on the title card put a step in the history`);
   await back();
   await toFloor('a swipe Back from the title card');
 
-  // A round: the tap on Play is the first tap, which gives the page a step of its own to take a slip on.
+  // A round. The tap on Play is the page's first tap (a browser skips a step a page adds before one).
   await page.goForward({ waitUntil: 'load' });
   await page.waitForFunction(h => !!window[h], m.hook, { timeout: 10000 });
   await page.tap(m.play);
   await page.waitForFunction(m.ready, null, { timeout: 10000 });
   await page.waitForTimeout(400); // (a touch just after a card goes is taken for the second tap of a double tap on it)
+  assert.ok(!(await extra()), `${where}: with no finger down, the page has a step of its own in the history`);
   const at = await page.evaluate(m.at);
 
-  // Back while a finger is down playing: the round goes on. Lifting it is a tap, which puts the step back.
+  // A finger down playing puts a step in the history for a slip; a Back then keeps the round going.
   await touch('touchStart', at.x, at.y);
+  assert.ok(await extra(), `${where}: a finger down playing didn't put a step in the history`);
   await back();
   await stillOn('a Back with a finger down');
+  // A while after it lifts, the step is gone again, and the round still going.
   await touch('touchEnd');
+  await quiet();
+  assert.ok(!(await extra()), `${where}: the step was still there a while after the finger lifted`);
+  await stillOn('taking the step off');
   if (m.again) await page.waitForFunction(m.ready, null, { timeout: 15000 });
 
   // The browser takes the touch, as the phone's back gesture does, and a Back follows: the round goes on.
@@ -129,28 +139,48 @@ for (const m of MACHINES) {
   await back();
   await stillOn('a Back just after the touch was taken');
 
-  // A while later (and a tap later, which puts the step back), Back goes to the floor, in one press.
-  await page.keyboard.press('KeyQ');
-  await page.waitForTimeout((m.slip || 1000) + 200);
+  // A while later, with no step of the page's own left, Back goes to the floor in one press.
+  await quiet();
+  assert.ok(!(await extra()), `${where}: the step was still there a while after the touch was taken`);
   await back();
   await toFloor('Back a while after a touch was taken');
   await ctx.close();
 }
 
-// Tilt: a table picked after the first tap is still the one the address names after a slip (the page's own step,
-// under the one the slip took, has the address from before the pick), so a reload or a shared link opens it.
+// Tilt: a table picked while the step for a slip is still there (the last ball drained under a held flipper, and
+// Change table straight away) is still the one the address names when the step comes off, though the page's own
+// step under it had the address from before, so a reload or a shared link opens it.
 {
   const { ctx, page, touch } = await phone();
   await page.goto(base + 'tilt/?table=space');
   await page.waitForFunction(() => !!window.tilt);
-  await page.tap('input[value="haunted"] + span');
   await page.tap('#startBtn');
   await page.waitForFunction(() => window.tilt.game.mode === 'play');
-  await touch('touchStart', 30, 600); await touch('touchCancel');
-  await page.goBack({ waitUntil: 'commit', timeout: 3000 }).catch(() => {});
+  await touch('touchStart', 30, 600);
+  await page.evaluate(() => window.tilt.useTable('haunted'));
+  await touch('touchEnd');
+  await page.waitForFunction(() => !history.state?.__edgeGuard, null, { timeout: 5000 });
   await page.waitForTimeout(300);
-  assert.equal(new URL(page.url()).search, '?table=haunted', "Tilt's address after a slip names another table");
+  assert.equal(new URL(page.url()).search, '?table=haunted', "Tilt's address names another table once the step for a slip comes off");
   assert.equal(await page.evaluate(() => window.tilt.table.name), 'Haunted House');
+  await ctx.close();
+}
+
+// Reloaded just after a finger lifted, with the step for a slip still there, a Back goes to the floor in one press.
+{
+  const { ctx, page, touch } = await phone();
+  await page.goto(base);
+  await page.goto(base + 'hoops/');
+  await page.waitForFunction(() => !!window.hoops);
+  await page.tap('#play');
+  await page.waitForFunction(() => window.hoops.mode === 'play');
+  await page.waitForTimeout(400);
+  await touch('touchStart', 195, 700); await touch('touchEnd');
+  await page.reload();
+  await page.waitForFunction(() => !!window.hoops);
+  assert.ok(await page.evaluate(() => !!history.state?.__edgeGuard), 'the step for a slip went with the reload');
+  await page.goBack({ waitUntil: 'commit', timeout: 3000 }).catch(() => {});
+  await page.waitForURL(base, { timeout: 3000 }).catch(() => assert.fail("after a reload, Back didn't go to the floor in one press"));
   await ctx.close();
 }
 

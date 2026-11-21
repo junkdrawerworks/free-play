@@ -159,8 +159,8 @@ function address(id) {
     if (search !== location.search) history.replaceState(history.state, '', location.pathname + search + location.hash);
   } catch { /* an address it can't change: play on */ }
 }
-// A Back taken for a slip (see below) lands on the page's step from before the first tap, whose address can name the
-// table from before one was picked: it names the one in the machine again.
+// The step the page keeps for a slip (see below) comes off by a Back onto the page's own step, whose address can name
+// the table from before one was picked while it was there: it names the one in the machine again.
 addEventListener('popstate', () => address(Object.keys(TABLES).find(id => TABLES[id] === table)));
 // Today's special, when it's Tilt's day: its goal, on its table, on the title card (or that it's made).
 function special() { const t = titleLine('tilt'); $('titleSpecial').textContent = t; $('titleSpecial').hidden = !t; }
